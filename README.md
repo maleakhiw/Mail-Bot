@@ -46,7 +46,7 @@ items by square root of the priority (e.g. 11 times for priority 100)
 ## Strategies Package Diagram
 Seen below is a diagram of the strategies interfaces and related elements. Be aware that this does not represent
 all the elements in Simulation. This diagram is provided below to aid in the understanding of the application.  
-[Strategy Package](strategy-package.png)
+![Strategy Package](strategy-package.png)
 
 ## Task
 As you will notice, the current strategies used for sorting mail are incorrect and the current strategies for selecting

@@ -1,6 +1,9 @@
 package strategies;
 
-import java.util.Stack;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+
+import automail.Clock;
 import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
@@ -8,28 +11,29 @@ import exceptions.TubeFullException;
 
 public class MyMailPool implements IMailPool{
 	// My first job with Robotic Mailing Solutions Inc.!
-	// 2 kinds of items so two structures
-	// Remember stacks from 1st year - easy to use, not sure if good choice
-	private Stack<MailItem> nonPriorityPool;
-	private Stack<MailItem> priorityPool;
+	private PriorityQueue<MailItem> nonPriorityPool;
+	private PriorityQueue<MailItem> priorityPool;
+	
 	private static final int MAX_TAKE = 4;
-
+	public static final double EXPONENT = 1.1;
+	
 	public MyMailPool(){
-		// Start empty
-		nonPriorityPool = new Stack<MailItem>();
-		priorityPool = new Stack<MailItem>();
+		// Instantiate the compare object used to determine item who has highest priority
+		WeightComparator comparator = new WeightComparator();
+		nonPriorityPool = new PriorityQueue<MailItem>(comparator);
+		priorityPool = new PriorityQueue<MailItem>(comparator);
 	}
 
 	public void addToPool(MailItem mailItem) {
 		// Check whether it has a priority or not
 		if(mailItem instanceof PriorityMailItem){
-			// Add to priority items
-			// Kinda feel like I should be sorting or something
-			priorityPool.push(mailItem);
+			// Add to priority items priority queue
+			// Using PQ maintains efficiency as it doesn't sort everything. 
+			// PQ only makes sure the head has highest priority and the rest will be sorted when necessary.
+			priorityPool.add(mailItem);
 		}
 		else{
-			// Add to nonpriority items
-			// Maybe I need to sort here as well? Bit confused now
+			// Add to nonpriority item priority queue
 			nonPriorityPool.add(mailItem);
 		}
 	}
@@ -49,7 +53,7 @@ public class MyMailPool implements IMailPool{
 		if(getNonPriorityPoolSize(weightLimit) > 0){
 			// Should I be getting the earliest one? 
 			// Surely the risk of the weak robot getting a heavy item is small!
-			return nonPriorityPool.pop();
+			return nonPriorityPool.remove();
 		}
 		else{
 			return null;
@@ -59,7 +63,7 @@ public class MyMailPool implements IMailPool{
 	private MailItem getHighestPriorityMail(int weightLimit){
 		if(getPriorityPoolSize(weightLimit) > 0){
 			// How am I supposed to know if this is the highest/earliest?
-			return priorityPool.pop();
+			return priorityPool.remove();
 		}
 		else{
 			return null;
@@ -90,8 +94,43 @@ public class MyMailPool implements IMailPool{
 				}
 			}
 		}
-		catch(TubeFullException e){
+		catch(TubeFullException e) {
 			e.printStackTrace();
+		}
+	}
+	
+
+	private static class WeightComparator implements Comparator<MailItem> {
+
+		@Override
+		public int compare(MailItem item1, MailItem item2) {
+			double priorityItem1 = calculateSystemPriority(item1);
+			double priorityItem2 = calculateSystemPriority(item2);
+			int compareValue = Double.compare(priorityItem1, priorityItem2);
+			
+			// Need the reverse since higher value function need to be popped first in the Priority Queue
+			if (compareValue > 0) {
+				return -1;
+			}
+			else if (compareValue < 0) {
+				return 1;
+			}
+			else {
+				return 0;
+			}
+		}
+		
+		private double calculateSystemPriority(MailItem item) {
+			double firstTerm, secondTerm;
+			if (item instanceof PriorityMailItem) {
+				firstTerm = Math.pow((Clock.Time() - item.getArrivalTime()), 1.1);
+				secondTerm = 1 + Math.sqrt(((PriorityMailItem)item).getPriorityLevel());
+				return(firstTerm * secondTerm);
+			}
+			else {
+				firstTerm = Math.pow((Clock.Time() - item.getArrivalTime()), 1.1);
+				return(firstTerm);
+			}
 		}
 	}
 

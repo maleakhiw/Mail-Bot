@@ -8,6 +8,8 @@ package strategies;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.PriorityQueue;
+
+import automail.Building;
 import automail.Clock;
 import automail.MailItem;
 import automail.PriorityMailItem;
@@ -18,7 +20,7 @@ import exceptions.TubeFullException;
  * level. Mainly focuses on the MailSelecting system to decide what mail items should go in to storage unit/ robot backpack.
  */
 public class MyMailPool implements IMailPool{
-	/** Private Variables */
+	/** Instance Variables */
 	/* The data structure for the mail selecting system is a priority queue. The reason for using priority queue is that 
 	 * we want to optimise the scoring system by delivering item which contribute to high system scoring function first. When
 	 * this data structure is implemented, it will prioritise giving the robots item with high priority/urgency first which 
@@ -35,7 +37,6 @@ public class MyMailPool implements IMailPool{
 	public static final int POSITIVE = 1;
 	public static final int NEUTRAL = 0;
 	public static final int NEGATIVE = -1;
-	public static final int GROUND_FLOOR = 1;
 	
 	/**
 	 * Constructor for MyMailPool which are used to instantiate appropriate PriorityQueue
@@ -164,7 +165,7 @@ public class MyMailPool implements IMailPool{
 	 */
 	@Override
 	public void fillStorageTube(StorageTube tube, boolean strong) {
-		int max = strong ? Integer.MAX_VALUE : 2000; // max weight
+		int max = strong ? Integer.MAX_VALUE : MyRobotBehaviour.WEAK_CARRY; // max weight
 		int weight = max; // Keep track of the new weight limit that the robot can handle after putting things on the storage
 		MailItem mail;
 		
@@ -299,7 +300,8 @@ public class MyMailPool implements IMailPool{
 				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
 				 * term it's quite straight forward from the formula
 				 */
-				firstTerm = Math.pow((item.getDestFloor() - GROUND_FLOOR + Clock.Time() - item.getArrivalTime()), EXPONENT);
+				firstTerm = Math.pow((item.getDestFloor() - Building.LOWEST_FLOOR
+						+ Clock.Time() - item.getArrivalTime()), EXPONENT);
 				secondTerm = 1 + Math.sqrt(((PriorityMailItem) item).getPriorityLevel());
 				return (firstTerm * secondTerm);
 			}
@@ -308,7 +310,8 @@ public class MyMailPool implements IMailPool{
 				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
 				 * term it's quite straight forward from the formula
 				 */
-				firstTerm = Math.pow((item.getDestFloor() - GROUND_FLOOR + Clock.Time() - item.getArrivalTime()), EXPONENT);
+				firstTerm = Math.pow((item.getDestFloor() - Building.LOWEST_FLOOR 
+						+ Clock.Time() - item.getArrivalTime()), EXPONENT);
 				secondTerm = 1; // since priority is 0
 				return (firstTerm * secondTerm);
 			}

@@ -19,15 +19,17 @@ public class MainProgram {
 		queue.add(100);
 		queue.add(-100);
 		queue.add(-1);
+		queue.add(50);
+		System.out.println(queue);
+		System.out.println(queue.remove());
+		System.out.println(queue.remove());
 		System.out.println(queue);
 		
-		ArrayList<Integer> list = new ArrayList<>();
-		list.add(12);
-		list.add(22);
-		list.add(1);
-		list.add(5);
-		Collections.sort(list, comparator);
-		System.out.println(list);
+		queue.clear();
+		queue.poll();
+		for (Integer i:queue) {
+			System.out.println(i);
+		}
 
 	}
 	

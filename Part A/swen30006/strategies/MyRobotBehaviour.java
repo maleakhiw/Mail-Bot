@@ -5,6 +5,7 @@
  */
 package strategies;
 import automail.Clock;
+import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
 
@@ -13,8 +14,9 @@ import automail.StorageTube;
  */
 public class MyRobotBehaviour implements IRobotBehaviour {
 	/** Instance Variables */
-	private boolean newPriority; // Used if we are notified that a priority item has arrived. 
+	private boolean newPriority; // Used if we are notified that a priority item has arrived 
 	private boolean strong; // Used to identify which type of robot 
+	private int newPriorityLevel; // Used to compare the new priority level with the one on the tube
 	
 	/** Constant */
 	public static final int WEAK_CARRY = 2000;
@@ -45,9 +47,11 @@ public class MyRobotBehaviour implements IRobotBehaviour {
     	// Only notify strong robot and weak robot if the weak robot can carry the weight
     	if (strong == true) {
     		newPriority = true;
+    		this.newPriorityLevel = priority;
     	}
     	else if ((strong == false) && (weight <= WEAK_CARRY)) {
     		newPriority = true;
+    		this.newPriorityLevel = priority;
     	}
     	// Else, don't notify
     	else {
@@ -66,8 +70,10 @@ public class MyRobotBehaviour implements IRobotBehaviour {
 			return true; // Empty tube means we are returning anyway
 		} else {
 			// Return if we don't have a priority item and a new one came in
-			Boolean priority = (tube.peek() instanceof PriorityMailItem);
-			return !priority && newPriority;
+			MailItem item = tube.peek();
+			Boolean priority = (item instanceof PriorityMailItem);
+			return ((!priority && newPriority) || 
+					(priority && newPriority && (newPriorityLevel > ((PriorityMailItem)item).getPriorityLevel())));
 		}
 	}
 	

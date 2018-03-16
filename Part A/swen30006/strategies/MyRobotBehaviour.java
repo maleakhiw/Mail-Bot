@@ -10,6 +10,10 @@ import automail.StorageTube;
 
 /**
  * Defines the behaviour of the strong and weak robot, such as when to get back to the mail pool.
+ * 
+ * Algorithm of the robot behaviour:
+ * 1. Only notify the robot that can carry the weight (strong and sometimes weak) to go back
+ * 2. Only go back if priority item on the tube is less than the priority item that are arrived. 
  */
 public class MyRobotBehaviour implements IRobotBehaviour {
 	/** Instance Variables */

@@ -24,6 +24,8 @@ public class MainProgram {
 		System.out.println(queue.remove());
 		System.out.println(queue.remove());
 		System.out.println(queue);
+		queue.peek();
+		System.out.println(queue);
 		
 		queue.clear();
 		queue.poll();

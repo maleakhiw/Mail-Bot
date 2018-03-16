@@ -4,7 +4,6 @@
  * Date: 15/03/2018
  */
 package strategies;
-import automail.Clock;
 import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;

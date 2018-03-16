@@ -11,7 +11,7 @@ public class Automail {
     public Automail(IMailDelivery delivery) {
     	/** Initialize the MailPool */
     	
-    	// mailPool = new SimpleMailPool(); (simple strategy)
+    	//mailPool = new SimpleMailPool(); 
     	mailPool = new MyMailPool();
     	
         /** Initialize the RobotAction */

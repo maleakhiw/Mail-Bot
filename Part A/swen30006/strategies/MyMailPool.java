@@ -6,6 +6,7 @@
 package strategies;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.PriorityQueue;
 
@@ -28,8 +29,9 @@ public class MyMailPool implements IMailPool{
 	 * structures, such as ArrayList, LinkedList. PQ is more efficient because it creates a heap and just do partial sort every 
 	 * time. Consequenctly, PQ doesn't do unnecessary process of sorting everything every single time.
 	 */
-	private PriorityQueue<MailItem> nonPriorityPool;
-	private PriorityQueue<MailItem> priorityPool;
+	private ArrayList<MailItem> nonPriorityPool;
+	private ArrayList<MailItem> priorityPool;
+	private WeightComparator comparator;
 	
 	/** Constant */
 	private static final int MAX_TAKE = 4;
@@ -37,15 +39,17 @@ public class MyMailPool implements IMailPool{
 	public static final int POSITIVE = 1;
 	public static final int NEUTRAL = 0;
 	public static final int NEGATIVE = -1;
+	public static final int HEAD = 0;
 	
 	/**
 	 * Constructor for MyMailPool which are used to instantiate appropriate PriorityQueue
 	 */
 	public MyMailPool(){
 		// Instantiate the compare object used to determine item who has highest priority, Comparator class are described below
-		WeightComparator comparator = new WeightComparator();
-		nonPriorityPool = new PriorityQueue<MailItem>(comparator);
-		priorityPool = new PriorityQueue<MailItem>(comparator);
+		nonPriorityPool = new ArrayList<MailItem>();
+		priorityPool = new ArrayList<MailItem>();
+		comparator = new WeightComparator();
+		
 	}
 
 	/**
@@ -56,9 +60,12 @@ public class MyMailPool implements IMailPool{
 		// Check types of item being added and put to appropriate pool
 		if(mailItem instanceof PriorityMailItem){
 			priorityPool.add(mailItem);
+			Collections.sort(priorityPool, comparator);
+			System.out.println(priorityPool);
 		}
 		else{
 			nonPriorityPool.add(mailItem);
+			Collections.sort(nonPriorityPool, comparator);
 		}
 	}
 	
@@ -88,7 +95,7 @@ public class MyMailPool implements IMailPool{
 		int size = 0;
 		for (MailItem mail:priorityPool) {
 			if (mail.getWeight() <= weightLimit) {
-				size ++;
+				size++;
 			}
 		}
 		
@@ -108,16 +115,19 @@ public class MyMailPool implements IMailPool{
 			/* Only take item that the robot can handle based on weight if the robot cannot handle then put on the array list 
 			 * so that later can be put back to the Priority Queue.
 			 */
-			mail = nonPriorityPool.poll();
+			mail = nonPriorityPool.remove(HEAD);
 			while (mail.getWeight() > weightLimit) {
 				mails.add(mail);
-				mail = nonPriorityPool.poll();
+				mail = nonPriorityPool.remove(HEAD);
 			}
 			
 			// Put back all mail on the mails back to the priority queue
 			for (MailItem m:mails) {
 				nonPriorityPool.add(m);
 			}
+			
+			// Sort back non priority pool
+			Collections.sort(nonPriorityPool, comparator);
 			
 			return mail; // Return the mail that satisfy the weight criterion
 		}
@@ -139,16 +149,19 @@ public class MyMailPool implements IMailPool{
 			/* Only take item that the robot can handle based on weight if the robot cannot handle then put on the array list 
 			 * so that later can be put back to the Priority Queue.
 			 */
-			mail = priorityPool.poll();
+			mail = priorityPool.remove(HEAD);
 			while (mail.getWeight() > weightLimit) {
 				mails.add(mail);
-				mail = priorityPool.poll();
+				mail = priorityPool.remove(HEAD);
 			}
 			
 			// Put back all mail on the mails back to the priority queue
 			for (MailItem m:mails) {
 				priorityPool.add(m);
 			}
+			
+			// Sort back priority pool
+			Collections.sort(priorityPool, comparator);
 			
 			return mail; // Return the mail that satisfy the weight criterion
 		}
@@ -268,16 +281,22 @@ public class MyMailPool implements IMailPool{
 		 */
 		@Override
 		public int compare(MailItem item1, MailItem item2) {
-			double priorityItem1 = calculateItemPriority(item1);
-			double priorityItem2 = calculateItemPriority(item2);
+			if (item1 instanceof PriorityMailItem && item2 instanceof PriorityMailItem &&
+					(((PriorityMailItem) item1).getPriorityLevel() != ((PriorityMailItem) item2).getPriorityLevel())) {
+				return (((PriorityMailItem) item2).getPriorityLevel() - ((PriorityMailItem) item1).getPriorityLevel());
+			}
+			
+			int time = Clock.Time();
+			double priorityItem1 = calculateItemPriority(item1, time);
+			double priorityItem2 = calculateItemPriority(item2, time);
 			int compareValue = Double.compare(priorityItem1, priorityItem2);
 			
-			// Need the reverse since we want the head of the PQ to be the largest contributor for the scoring system
-			if (compareValue > 0) {
-				return NEGATIVE;
-			}
-			else if (compareValue < 0) {
+			// Reverse sort
+			if (compareValue < 0) {
 				return POSITIVE;
+			}
+			else if (compareValue > 0) {
+				return NEGATIVE;
 			}
 			else {
 				return NEUTRAL;
@@ -292,7 +311,7 @@ public class MyMailPool implements IMailPool{
 		 * @param item - MailItem instance that we want to calculate it's priority to be used to order it in the priority queue
 		 * @return contribution of the item
 		 */
-		private double calculateItemPriority(MailItem item) {
+		private double calculateItemPriority(MailItem item, int time) {
 			double firstTerm, secondTerm;
 			// Calculation based on priority item, for non priority term there is no multiplication factor as priority = 0
 			if (item instanceof PriorityMailItem) {
@@ -300,9 +319,8 @@ public class MyMailPool implements IMailPool{
 				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
 				 * term it's quite straight forward from the formula
 				 */
-				firstTerm = Math.pow((item.getDestFloor() - Building.LOWEST_FLOOR
-						+ Clock.Time() - item.getArrivalTime()), EXPONENT);
-				secondTerm = 1 + Math.sqrt(((PriorityMailItem) item).getPriorityLevel());
+				firstTerm = -item.getDestFloor();
+				secondTerm = ((PriorityMailItem) item).getPriorityLevel();
 				return (firstTerm * secondTerm);
 			}
 			else {
@@ -310,8 +328,7 @@ public class MyMailPool implements IMailPool{
 				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
 				 * term it's quite straight forward from the formula
 				 */
-				firstTerm = Math.pow((item.getDestFloor() - Building.LOWEST_FLOOR 
-						+ Clock.Time() - item.getArrivalTime()), EXPONENT);
+				firstTerm = -item.getDestFloor();
 				secondTerm = 1; // since priority is 0
 				return (firstTerm * secondTerm);
 			}

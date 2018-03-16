@@ -8,10 +8,6 @@ package strategies;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.PriorityQueue;
-
-import automail.Building;
-import automail.Clock;
 import automail.MailItem;
 import automail.PriorityMailItem;
 import automail.StorageTube;
@@ -19,15 +15,23 @@ import exceptions.TubeFullException;
 
 /** Implements the interface mail pool and define the behaviour of the system in mail pool which are located on the ground 
  * level. Mainly focuses on the MailSelecting system to decide what mail items should go in to storage unit/ robot backpack.
+ * 
+ * Algorithm of MailPool: 
+ * 1. The objective of the mailing pool is to minimise the system scoring function, hence create an ArrayList which are sorted 
+ *    based on urgency and priority defined by the WeightComparator (i.e. priority 100 is more important to deliver first than
+ *    priority 10 item, hence 100 should be in the head of ArrayList).
+ * 2. The second consideration is regarding adding item from mail pool to storage tube, we want to add as many item as possible
+ *    to the storage tube respecting the condition that the storage tube limit is 4 items and weak robot only carry maximum 
+ *    2000.
+ * 3. After putting all of the item in the tube, for efficiency we want to manipulate the storage tube (stack) such that the
+ *    robot will deliver item sequentially from lower level item to higher level item, so that the robot doesn't go back and 
+ *    forth.
  */
 public class MyMailPool implements IMailPool{
 	/** Instance Variables */
-	/* The data structure for the mail selecting system is a priority queue. The reason for using priority queue is that 
-	 * we want to optimise the scoring system by delivering item which contribute to high system scoring function first. When
-	 * this data structure is implemented, it will prioritise giving the robots item with high priority/urgency first which 
-	 * will then optimise the overall result. Another reason of choosing Priority Queue is as it is better than other data 
-	 * structures, such as ArrayList, LinkedList. PQ is more efficient because it creates a heap and just do partial sort every 
-	 * time. Consequenctly, PQ doesn't do unnecessary process of sorting everything every single time.
+	/* The data structure chosen is array list that are sorted based on urgency defined in the WeightComparator class. The head 
+	 * of the array list will be the higher priority that needed to be delivered first (i.e. priority 100 first before priority
+	 * 10)
 	 */
 	private ArrayList<MailItem> nonPriorityPool;
 	private ArrayList<MailItem> priorityPool;
@@ -48,8 +52,7 @@ public class MyMailPool implements IMailPool{
 		// Instantiate the compare object used to determine item who has highest priority, Comparator class are described below
 		nonPriorityPool = new ArrayList<MailItem>();
 		priorityPool = new ArrayList<MailItem>();
-		comparator = new WeightComparator();
-		
+		comparator = new WeightComparator(); 
 	}
 
 	/**
@@ -60,10 +63,12 @@ public class MyMailPool implements IMailPool{
 		// Check types of item being added and put to appropriate pool
 		if(mailItem instanceof PriorityMailItem){
 			priorityPool.add(mailItem);
+			
+			// Reverse sort based on urgency to make sure higher priority item delivered first
 			Collections.sort(priorityPool, comparator);
-			System.out.println(priorityPool);
 		}
 		else{
+			// Reverse sort for the same reason as above
 			nonPriorityPool.add(mailItem);
 			Collections.sort(nonPriorityPool, comparator);
 		}
@@ -103,7 +108,7 @@ public class MyMailPool implements IMailPool{
 	}
 
 	/**
-	 * Used to get a non priority mail from the non priority pool PQ, only get item that the robot can still take.
+	 * Used to get a non priority mail from the non priority pool array list, only get item that the robot can still take.
 	 * @param weightLimit
 	 * @return MailItem instance that the robot can take from non priority pool
 	 */
@@ -113,22 +118,22 @@ public class MyMailPool implements IMailPool{
 		
 		if(getNonPriorityPoolSize(weightLimit) > 0){
 			/* Only take item that the robot can handle based on weight if the robot cannot handle then put on the array list 
-			 * so that later can be put back to the Priority Queue.
+			 * so that later can be put back to the mail pool.
 			 */
-			mail = nonPriorityPool.remove(HEAD);
+			mail = nonPriorityPool.remove(HEAD); // take the most urgent item
 			while (mail.getWeight() > weightLimit) {
 				mails.add(mail);
 				mail = nonPriorityPool.remove(HEAD);
 			}
 			
-			// Put back all mail on the mails back to the priority queue
+			// Put back all mail on the mails back to the pool
 			for (MailItem m:mails) {
 				nonPriorityPool.add(m);
 			}
 			
-			// Sort back non priority pool
+			// Sort back non priority pool to satisfy the sorting criteria
 			Collections.sort(nonPriorityPool, comparator);
-			
+
 			return mail; // Return the mail that satisfy the weight criterion
 		}
 		else{
@@ -137,7 +142,7 @@ public class MyMailPool implements IMailPool{
 	}
 	
 	/**
-	 * Used to get a priority mail from the priority pool PQ, only get item that the robot can still take.
+	 * Used to get a priority mail from the priority pool array list, only get item that the robot can still take.
 	 * @param weightLimit
 	 * @return MailItem instance that the robot can take from the priority pool
 	 */
@@ -147,7 +152,7 @@ public class MyMailPool implements IMailPool{
 		
 		if(getPriorityPoolSize(weightLimit) > 0){
 			/* Only take item that the robot can handle based on weight if the robot cannot handle then put on the array list 
-			 * so that later can be put back to the Priority Queue.
+			 * so that later can be put back to the mailpool.
 			 */
 			mail = priorityPool.remove(HEAD);
 			while (mail.getWeight() > weightLimit) {
@@ -249,8 +254,8 @@ public class MyMailPool implements IMailPool{
 		MailItem currentHighestItem;
 		
 		// Initial
-		currentHighest = items.get(NEUTRAL).getDestFloor();
-		currentHighestItem = items.get(NEUTRAL);
+		currentHighest = items.get(HEAD).getDestFloor();
+		currentHighestItem = items.get(HEAD);
 		
 		// Check which item need to be delivered to highest floor
 		for (MailItem i:items) {
@@ -265,72 +270,50 @@ public class MyMailPool implements IMailPool{
 	}
 	
 	/**
-	 * Inner class used in the Priority Queue for the order of sorting. This class is used to determine priority for items in 
-	 * the priority queue.
+	 * Inner class used in the mail pool sorting process. Highest priority should be in front of the array list.
 	 */
-	private static class WeightComparator implements Comparator<MailItem> {
+	private class WeightComparator implements Comparator<MailItem> {
 		
 		/**
-		 * Used to determine the priority of mail items. Wanted to make sure that the head of the priority queue is items that
+		 * Used to determine the priority of mail items. Wanted to make sure that the head of the array list is items that
 		 * has the most contribution to the system scoring, so that we can deliver first and hence getting overall lower
 		 * system score.
 		 * @param item1 - MailItem instance that we want to compare against item2
 		 * @param item2 - MailItem instance that we want to compare against item1
-		 * @return since we want to do reverse sorted (highest contributor on the head of PQ), then -1 if item1 > item2, 0 if
-		 * item1 == item2, 1 if item1 < item2.
+		 * @return ordering processes
 		 */
 		@Override
 		public int compare(MailItem item1, MailItem item2) {
+			// If the item is both priority and 1 has 100, the other is 10, deliver 100 first
 			if (item1 instanceof PriorityMailItem && item2 instanceof PriorityMailItem &&
 					(((PriorityMailItem) item1).getPriorityLevel() != ((PriorityMailItem) item2).getPriorityLevel())) {
 				return (((PriorityMailItem) item2).getPriorityLevel() - ((PriorityMailItem) item1).getPriorityLevel());
 			}
-			
-			int time = Clock.Time();
-			double priorityItem1 = calculateItemPriority(item1, time);
-			double priorityItem2 = calculateItemPriority(item2, time);
-			int compareValue = Double.compare(priorityItem1, priorityItem2);
-			
-			// Reverse sort
-			if (compareValue < 0) {
-				return POSITIVE;
-			}
-			else if (compareValue > 0) {
-				return NEGATIVE;
-			}
+			// The only option left is now between the same priority or between non prority item.
+			// We want to prefer deliver lower level item first since it is faster
 			else {
-				return NEUTRAL;
-			}
-		}
-		
-		/**
-		 * Used to calculate the priority level of an item that are used in priority queue. Since the objective is to minimise
-		 * the system function, this algorithm order item based on their contribution to the system function. This algorithm
-		 * are then used in max heap format which the priority queue will return first item that has the highest contribution
-		 * to the system scoring function. As a result, it effectively optimise the system scoring function.
-		 * @param item - MailItem instance that we want to calculate it's priority to be used to order it in the priority queue
-		 * @return contribution of the item
-		 */
-		private double calculateItemPriority(MailItem item, int time) {
-			double firstTerm, secondTerm;
-			// Calculation based on priority item, for non priority term there is no multiplication factor as priority = 0
-			if (item instanceof PriorityMailItem) {
-				/* first term is based on the formula given on the assignment, with the destination time calculated based on
-				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
-				 * term it's quite straight forward from the formula
-				 */
-				firstTerm = -item.getDestFloor();
-				secondTerm = ((PriorityMailItem) item).getPriorityLevel();
-				return (firstTerm * secondTerm);
-			}
-			else {
-				/* first term is based on the formula given on the assignment, with the destination time calculated based on
-				 * the floor assuming going up 1 floor take 1 time and waiting time of the item currently. As for the second 
-				 * term it's quite straight forward from the formula
-				 */
-				firstTerm = -item.getDestFloor();
-				secondTerm = 1; // since priority is 0
-				return (firstTerm * secondTerm);
+				int destination1 = item1.getDestFloor();
+				int destination2 = item2.getDestFloor();
+				// Deliver lower level item first since it is faster, if it has the same priority level
+				if (destination1 != destination2) {
+					return (destination1 - destination2);
+				}
+				// Now if the destination is the same, deliver most urgent item first based on arrival time
+				else {
+					int arrivalTime1 = item1.getArrivalTime();
+					int arrivalTime2 = item2.getArrivalTime();
+					
+					// Consider lower weight first
+					if (arrivalTime1 != arrivalTime2) {
+						return (arrivalTime1 - arrivalTime2);
+					}
+					else {
+						int weightItem1 = item1.getWeight();
+						int weightItem2 = item2.getWeight();
+						
+						return (weightItem1 - weightItem2);
+					}
+				}
 			}
 		}
 	}
